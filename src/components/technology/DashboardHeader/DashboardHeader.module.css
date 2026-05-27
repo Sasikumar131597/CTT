@@ -1,0 +1,100 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.titleRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.titleBlock {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", "Outfit", system-ui, sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", "Outfit", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.filtersRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 1rem;
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+.subtechField {
+  flex: 0 1 420px;
+  width: 420px;
+  min-width: 280px;
+  overflow: visible;
+}
+
+.countryField {
+  flex: 0 0 220px;
+  width: 220px;
+}
+
+.subtechLabel,
+.countryLabel {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: "Plus Jakarta Sans", "Outfit", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.subtechLabel {
+  color: #0f4c81;
+}
+
+.countryLabel {
+  color: #1e40af;
+}
+
+@media (max-width: 900px) {
+  .titleRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .filtersRow {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .subtechField,
+  .countryField {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
+}

@@ -1,0 +1,168 @@
+.wrapper {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: #a5adc1;
+}
+
+/* Full map background */
+.mapContainer {
+  /* position: absolute;
+  inset: 0;
+  z-index: 1; */
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  
+
+}
+
+/* SVG map */
+.map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Countries */
+.country {
+  transition: all 0.3s ease;
+}
+
+.country:hover {
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.15));
+}
+
+/* ===============================
+   SEARCH BOX (if used later)
+================================= */
+
+.searchWrapper {
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+}
+
+.searchCard {
+  width: 100%;
+  max-width: var(--content-card-max-width, 960px);
+  background: #f4f4f4;
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.inputArea {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #3f51ff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  outline: none;
+  height: 64px;
+  padding: 0 18px;
+  font-size: 18px;
+  color: #111;
+  background: transparent;
+}
+
+.input::placeholder {
+  color: #222;
+}
+
+.select {
+  width: 60px;
+  height: 64px;
+  border: none;
+  outline: none;
+  background: #ffffff;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.button {
+  min-width: 145px;
+  height: 70px;
+  border: none;
+  border-radius: 10px;
+  background: #1976d2;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 24px;
+  transition: 0.3s ease;
+}
+
+.button:hover {
+  background: #0d63bb;
+}
+
+/* ===============================
+   Responsive
+================================= */
+
+@media (max-width: 992px) {
+  .searchCard {
+    max-width: 860px;
+    padding: 22px;
+  }
+
+  .button {
+    min-width: 130px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .searchWrapper {
+    top: 70px;
+  }
+
+  .searchCard {
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .inputArea {
+    width: 100%;
+  }
+
+  .input {
+    font-size: 15px;
+    height: 54px;
+  }
+
+  .select {
+    height: 54px;
+  }
+
+  .button {
+    width: 100%;
+    height: 54px;
+    font-size: 18px;
+  }
+
+  .mapContainer {
+    opacity: 0.18;
+  }
+}
