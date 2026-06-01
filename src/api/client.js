@@ -140,4 +140,29 @@ export const api = {
     authFetch(
       `${BASE_URL}/api/get-global-patent-country-rank-multiline/${encodeURIComponent(subTechId)}`
     ),
+
+  getGlobalPublicationCountryRank: (subTechId) =>
+    authFetch(
+      `${BASE_URL}/api/get-global-publication-country-rank/${encodeURIComponent(subTechId)}`
+    ),
+
+  getPublicationTrendlineCountry: (subTechId, countryId) =>
+    authFetch(
+      `${BASE_URL}/api/get-publication-trendline-country/${encodeURIComponent(subTechId)}/${encodeURIComponent(countryId)}`
+    ),
+
+  getPublicationInternationalCollaboration: (subTechId, countryId) =>
+    authFetch(
+      `${BASE_URL}/api/publication-international-collaboration/${encodeURIComponent(subTechId)}/${encodeURIComponent(countryId)}`
+    ),
+
+  getPatentTrendlineCountry: (subTechId, countryId) =>
+    authFetch(
+      `${BASE_URL}/api/get-patent-trendline-country/${encodeURIComponent(subTechId)}/${encodeURIComponent(countryId)}`
+    ),
+
+  getGlobalPatentsCountryRank: (subTechId) =>
+    authFetch(
+      `${BASE_URL}/api/get-global-patents-country-rank/${encodeURIComponent(subTechId)}`
+    ),
 };

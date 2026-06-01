@@ -12,6 +12,28 @@
   box-sizing: border-box;
 }
 
+.clickable {
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.clickable:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.clickable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.clickable:active {
+  transform: translateY(1px);
+}
+
 .label {
   margin: 0 0 0.75rem;
   font-family: "Plus Jakarta Sans", "Outfit", system-ui, sans-serif;

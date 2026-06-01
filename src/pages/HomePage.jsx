@@ -95,7 +95,6 @@ export default function HomePage() {
     setSelectedSubTech(sub);
     setSearch(sub.sub_tech_name);
     setShowDropdown(false);
-    navigate(`/technology/${sub.sub_tech_id}`);
   };
 
   const handleExplore = () => {

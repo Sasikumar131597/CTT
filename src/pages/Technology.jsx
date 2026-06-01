@@ -4,6 +4,8 @@ import { CircularProgress } from "@mui/material";
 
 import { api } from "../api/client";
 import CountryTrendsChart from "../components/technology/CountryTrendsChart/CountryTrendsChart";
+import PatentCountryRankChart from "../components/technology/PatentCountryRankChart/PatentCountryRankChart";
+import PublicationCountryRankChart from "../components/technology/PublicationCountryRankChart/PublicationCountryRankChart";
 import DashboardHeader from "../components/technology/DashboardHeader/DashboardHeader";
 import StatsGrid from "../components/technology/StatsGrid/StatsGrid";
 import {
@@ -253,9 +255,23 @@ export default function Technology() {
           </div>
         ) : null}
 
-        <StatsGrid stats={stats} />
+        <StatsGrid
+          stats={stats}
+          subTechId={subTechId}
+          selectedCountry={selectedCountry}
+        />
 
         <CountryTrendsChart subTechId={subTechId} />
+
+        <PublicationCountryRankChart
+          subTechId={subTechId}
+          highlightCountryId={selectedCountry}
+        />
+
+        <PatentCountryRankChart
+          subTechId={subTechId}
+          highlightCountryId={selectedCountry}
+        />
       </div>
     </div>
   );

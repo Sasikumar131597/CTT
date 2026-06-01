@@ -4,6 +4,8 @@ import { createBrowserRouter } from 'react-router-dom';
 import RootWrapper from '../components/rootwrapper/RootWrapper';
 import HomePage from '../pages/HomePage';
 import Technology from '../pages/Technology';
+import Publication from '../pages/Publication';
+import Patent from '../pages/Patent';
 
 // Placeholder pages (create these files)
 const AboutPage = () => <div style={{padding:'2rem'}}><h1>About Page</h1></div>;
@@ -25,6 +27,8 @@ export const router = createBrowserRouter([
       { path: 'methodology', element: <MethodologyPage /> },
       { path: 'contact', element: <ContactPage /> },
       { path: 'technology/:subTechId', element: <Technology /> },
+      { path: 'publication/:subTechId', element: <Publication /> },
+      { path: 'patent/:subTechId', element: <Patent /> },
       { path: '*', element: <NotFoundPage /> }
     ]
   }

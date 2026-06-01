@@ -2,15 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { api } from "../../../api/client";
 import CountryMultiSelect from "../CountryMultiSelect/CountryMultiSelect";
-import FilterSelect from "../FilterSelect/FilterSelect";
 import TrendsLineChart from "./TrendsLineChart";
 import {
   buildDynamicCountries,
+  buildYearOptions,
   CHART_YEAR_END,
   CHART_YEAR_START,
   METRIC_OPTIONS,
   normaliseCountryKey,
-  YEAR_RANGE_OPTIONS,
 } from "./trendsChartConfig";
 import { sortCountriesByRanking } from "../../../utils/trendsChartUtils";
 import styles from "./CountryTrendsChart.module.css";
@@ -18,13 +17,17 @@ import styles from "./CountryTrendsChart.module.css";
 const DESCRIPTION =
   "A comparative view of scientific output and innovation activity across leading countries, covering total publications, top 10% and 1% highly cited papers, and patent grants and applications from 2003 to 2024.";
 
+const YEAR_OPTIONS = buildYearOptions();
+
+function filterRowsByYears(rows, selectedYears) {
+  if (!selectedYears.length) return rows;
+  const allowed = new Set(selectedYears.map((y) => Number(y)));
+  return rows.filter((row) => allowed.has(Number(row.year)));
+}
+
 /**
  * Converts raw API rows into the chart series format:
  * [{ year: 2010, india: 450, china: 1200, ... }, ...]
- *
- * Handles two possible API shapes:
- *   A) [{ year, country_name, value / count / total_publications / ... }]
- *   B) [{ country_name, data: [{ year, value }, ...] }]
  */
 function buildSeriesFromApi(rawData, apiKey) {
   const rows = Array.isArray(rawData)
@@ -42,7 +45,6 @@ function buildSeriesFromApi(rawData, apiKey) {
   };
 
   const toYear = (v) => {
-    // Accept values like 2003, "2003", "2003-01-01", etc.
     const s = v == null ? "" : String(v);
     const m = s.match(/\d{4}/);
     if (!m) return NaN;
@@ -66,7 +68,6 @@ function buildSeriesFromApi(rawData, apiKey) {
         0
     );
 
-  // Shape B — nested data array
   if (rows[0]?.data && Array.isArray(rows[0].data)) {
     rows.forEach((countryRow) => {
       const name =
@@ -85,7 +86,6 @@ function buildSeriesFromApi(rawData, apiKey) {
       });
     });
   } else {
-    // Shape A — flat rows
     rows.forEach((row) => {
       const year = toYear(row.year ?? row.pub_year ?? row.patent_year);
       if (Number.isNaN(year)) return;
@@ -110,33 +110,26 @@ function buildSeriesFromApi(rawData, apiKey) {
 
 export default function CountryTrendsChart({ subTechId }) {
   const [activeMetric, setActiveMetric] = useState(METRIC_OPTIONS[0].id);
-  const [yearRange, setYearRange] = useState(YEAR_RANGE_OPTIONS[0].value);
+  const [selectedYears, setSelectedYears] = useState([]);
 
-  // Raw API responses cached per type
   const [pubRaw, setPubRaw] = useState(null);
   const [patRaw, setPatRaw] = useState(null);
   const [apiLoading, setApiLoading] = useState(true);
   const [apiError, setApiError] = useState("");
 
-  // Derived dynamic countries list (from API data)
   const [dynamicCountries, setDynamicCountries] = useState([]);
-
-  // Selected country keys (multi-select) — empty means "all"
   const [selectedCountryKeys, setSelectedCountryKeys] = useState([]);
-
-  const selectedYearRange = useMemo(
-    () =>
-      YEAR_RANGE_OPTIONS.find((o) => o.value === yearRange) ??
-      YEAR_RANGE_OPTIONS[0],
-    [yearRange]
-  );
 
   const activeMetricConfig = useMemo(
     () => METRIC_OPTIONS.find((m) => m.id === activeMetric) ?? METRIC_OPTIONS[0],
     [activeMetric]
   );
 
-  // Fetch both publication and patent trend data when subTechId changes
+  const rankReferenceYear = useMemo(() => {
+    if (!selectedYears.length) return CHART_YEAR_END;
+    return Math.max(...selectedYears.map((y) => Number(y)));
+  }, [selectedYears]);
+
   useEffect(() => {
     if (!subTechId) {
       setApiLoading(false);
@@ -166,9 +159,7 @@ export default function CountryTrendsChart({ subTechId }) {
             pubResult.status === "rejected" ? pubResult.reason?.message : "";
           const patErr =
             patResult.status === "rejected" ? patResult.reason?.message : "";
-          setApiError(
-            pubErr || patErr || "Could not load trend data."
-          );
+          setApiError(pubErr || patErr || "Could not load trend data.");
           setPubRaw(null);
           setPatRaw(null);
           setDynamicCountries([]);
@@ -203,56 +194,35 @@ export default function CountryTrendsChart({ subTechId }) {
     };
   }, [subTechId]);
 
-  // Build chart data from cached raw responses based on active metric
   const { chartData, yMax } = useMemo(() => {
-    const isPatent =
-      activeMetricConfig.type === "patent";
-    const raw = isPatent ? patRaw : pubRaw;
-
-    const yearFrom = selectedYearRange.from;
-    const yearTo = selectedYearRange.to;
-
+    const raw = activeMetricConfig.type === "patent" ? patRaw : pubRaw;
     if (!raw) return { chartData: [], yMax: 2800 };
 
     const { series } = buildSeriesFromApi(raw, activeMetricConfig.apiKey);
+    const filtered = filterRowsByYears(series, selectedYears);
 
-    // Compute yMax from data for auto-scaling
     let dataMax = 0;
-    series
-      .filter((row) => row.year >= yearFrom && row.year <= yearTo)
-      .forEach((row) => {
-        Object.entries(row).forEach(([k, v]) => {
-          if (k !== "year") dataMax = Math.max(dataMax, Number(v) || 0);
-        });
+    filtered.forEach((row) => {
+      Object.entries(row).forEach(([k, v]) => {
+        if (k !== "year") dataMax = Math.max(dataMax, Number(v) || 0);
       });
+    });
     const roundedMax = dataMax <= 0 ? 2800 : Math.ceil(dataMax / 500) * 500;
 
-    return { chartData: series, yMax: roundedMax };
-  }, [
-    pubRaw,
-    patRaw,
-    activeMetricConfig,
-    selectedYearRange.from,
-    selectedYearRange.to,
-  ]);
+    return { chartData: filtered, yMax: roundedMax };
+  }, [pubRaw, patRaw, activeMetricConfig, selectedYears]);
 
   const rankedCountries = useMemo(
     () =>
       sortCountriesByRanking(
         chartData,
         dynamicCountries,
-        selectedYearRange.from,
-        selectedYearRange.to
+        rankReferenceYear,
+        rankReferenceYear
       ),
-    [
-      chartData,
-      dynamicCountries,
-      selectedYearRange.from,
-      selectedYearRange.to,
-    ]
+    [chartData, dynamicCountries, rankReferenceYear]
   );
 
-  // Country multi-select options (rank order: #1 highest)
   const countrySelectOptions = useMemo(
     () =>
       rankedCountries.map((c) => ({
@@ -264,14 +234,12 @@ export default function CountryTrendsChart({ subTechId }) {
     [rankedCountries]
   );
 
-  // Visible series + legend in rank order
   const visibleCountries = useMemo(() => {
     if (!selectedCountryKeys.length) return rankedCountries;
     const selected = new Set(selectedCountryKeys);
     return rankedCountries.filter((c) => selected.has(c.key));
   }, [rankedCountries, selectedCountryKeys]);
 
-  // Y-axis ticks derived from yMax
   const yAxisTicks = useMemo(() => {
     const step = yMax / 4;
     return [0, step, step * 2, step * 3, yMax].map((v) => Math.round(v));
@@ -307,24 +275,17 @@ export default function CountryTrendsChart({ subTechId }) {
 
         <div className={styles.filters}>
           <div className={styles.filterField}>
-            <span className={styles.filterLabel} id="trends-years-label">
-              Years
-            </span>
-            <FilterSelect
-              id="trends-year-range"
-              label="Years"
-              value={yearRange}
-              options={YEAR_RANGE_OPTIONS.map((o) => ({
-                value: o.value,
-                label: o.label,
-              }))}
-              onChange={setYearRange}
+            <CountryMultiSelect
+              options={YEAR_OPTIONS}
+              selected={selectedYears}
+              onChange={setSelectedYears}
+              disabled={apiLoading}
+              placeholder="Search years…"
+              allLabel="Years"
+              selectedCountLabel={(n) => `${n} years selected`}
             />
           </div>
           <div className={styles.filterField}>
-            <span className={styles.filterLabel} id="trends-countries-label">
-              Countries
-            </span>
             <CountryMultiSelect
               options={countrySelectOptions}
               selected={selectedCountryKeys}
@@ -336,17 +297,15 @@ export default function CountryTrendsChart({ subTechId }) {
         </div>
       </div>
 
-      {apiError ? (
-        <p className={styles.errorNote}>{apiError}</p>
-      ) : null}
+      {apiError ? <p className={styles.errorNote}>{apiError}</p> : null}
 
       <TrendsLineChart
         data={chartData}
         visibleCountries={visibleCountries}
-        yearFrom={selectedYearRange.from}
-        yearTo={selectedYearRange.to}
+        selectedYears={selectedYears}
         yAxisTicks={yAxisTicks}
         loading={apiLoading}
+        isPatentMetric={activeMetricConfig.type === "patent"}
       />
     </section>
   );

@@ -17,6 +17,8 @@ export default function CountryMultiSelect({
   onChange,
   disabled = false,
   placeholder = "Search countries…",
+  allLabel = "All countries",
+  selectedCountLabel,
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -70,14 +72,18 @@ export default function CountryMultiSelect({
     [options, selectedSet]
   );
 
+  const countLabel =
+    selectedCountLabel?.(selected.length) ??
+    `${selected.length} countries selected`;
+
   const triggerText =
     selected.length === 0
-      ? "All countries"
+      ? allLabel
       : selected.length === options.length
-      ? "All countries"
+      ? allLabel
       : selected.length === 1
       ? selectedLabels[0]
-      : `${selected.length} countries selected`;
+      : countLabel;
 
   return (
     <div ref={wrapRef} className={styles.wrap}>

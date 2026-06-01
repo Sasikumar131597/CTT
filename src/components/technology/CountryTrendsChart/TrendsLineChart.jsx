@@ -1,302 +1,192 @@
-import { useEffect, useMemo, useRef } from "react";
-import * as am5 from "@amcharts/amcharts5";
-import * as am5xy from "@amcharts/amcharts5/xy";
-import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
+import { useMemo } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   CHART_YEAR_END,
   CHART_YEAR_START,
+  PATENT_SPLIT_YEAR,
 } from "./trendsChartConfig";
 import styles from "./CountryTrendsChart.module.css";
 
 const CHART_HEIGHT = 380;
+const PATENT_AFTER_STROKE = "#94a3b8";
 
-function formatCount(value) {
-  const n = Number(value) || 0;
-  return n.toLocaleString();
+function afterDataKey(countryKey) {
+  return `${countryKey}__after`;
 }
 
-function buildTooltipHtml(year, row, countries) {
-  const entries = countries
-    .map((c) => ({
-      name: c.name,
-      color: c.color,
-      value: Number(row[c.key]) || 0,
-    }))
-    .sort((a, b) => b.value - a.value);
+/** Same pattern as MultiLinePublicationGraph — ranked tooltip per year */
+function RankedTooltip({ active, payload, label, countryByKey, isPatentMetric }) {
+  if (!active || !payload?.length) return null;
 
-  const rows = entries
-    .map(
-      (e, i) =>
-        `<tr>
-          <td style="color:${e.color};padding:1px 16px 1px 0;white-space:nowrap;font-size:11px;">
-            ${i + 1}. ${e.name}
-          </td>
-          <td style="color:${e.color};text-align:right;padding:1px 0;white-space:nowrap;font-size:11px;font-weight:600;">
-            ${formatCount(e.value)}
-          </td>
-        </tr>`
-    )
-    .join("");
+  const year = Number(label);
+  const preferAfter =
+    isPatentMetric && Number.isFinite(year) && year >= PATENT_SPLIT_YEAR;
 
-  return `<div style="font-weight:700;font-size:12px;color:#0f172a;margin-bottom:6px;">Year: ${year}</div>
-    <table style="border-collapse:collapse;">${rows}</table>`;
+  const countryMap = {};
+  payload.forEach((item) => {
+    if (item.value == null || item.dataKey === "year") return;
+
+    const isAfter = String(item.dataKey).endsWith("__after");
+    const key = isAfter
+      ? String(item.dataKey).replace("__after", "")
+      : item.dataKey;
+    const meta = countryByKey[key];
+    if (!meta) return;
+
+    if (!countryMap[key]) {
+      countryMap[key] = {
+        key,
+        name: meta.name,
+        value: item.value,
+        color: meta.color,
+        isAfter,
+      };
+      return;
+    }
+
+    if (preferAfter && isAfter) {
+      countryMap[key].value = item.value;
+      countryMap[key].isAfter = true;
+    } else if (!preferAfter && !isAfter) {
+      countryMap[key].value = item.value;
+      countryMap[key].isAfter = false;
+    }
+  });
+
+  const items = Object.values(countryMap).sort(
+    (a, b) => (b.value || 0) - (a.value || 0)
+  );
+
+  return (
+    <div className={styles.chartTooltip}>
+      <div className={styles.tooltipTitle}>Year: {label}</div>
+      <div className={styles.tooltipList}>
+        {items.map((item, idx) => (
+          <div
+            key={item.key}
+            className={styles.tooltipRow}
+            style={{
+              color: preferAfter && item.isAfter ? PATENT_AFTER_STROKE : item.color,
+            }}
+          >
+            <span>
+              {idx + 1}. {item.name}
+            </span>
+            <span className={styles.tooltipValue}>
+              {Number(item.value).toLocaleString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function clampYear(y) {
-  return Math.min(CHART_YEAR_END, Math.max(CHART_YEAR_START, y));
+function PatentXAxisTick({ x, y, payload, isPatentMetric }) {
+  const year = Number(payload?.value);
+  const isGrey =
+    isPatentMetric && Number.isFinite(year) && year >= PATENT_SPLIT_YEAR;
+
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={16}
+      textAnchor="middle"
+      fill={isGrey ? "#94a3b8" : "#64748b"}
+      fontSize={10}
+      fontWeight={year === PATENT_SPLIT_YEAR && isPatentMetric ? 600 : 400}
+    >
+      {payload.value}
+    </text>
+  );
+}
+
+function buildPatentMergedRows(chartRows, visibleCountries) {
+  const byYear = {};
+
+  chartRows.forEach((row) => {
+    const year = row.year;
+    if (!byYear[year]) byYear[year] = { year };
+
+    visibleCountries.forEach((country) => {
+      const value = row[country.key];
+      if (value == null) return;
+
+      if (year <= PATENT_SPLIT_YEAR) {
+        byYear[year][country.key] = value;
+      }
+      if (year >= PATENT_SPLIT_YEAR) {
+        byYear[year][afterDataKey(country.key)] = value;
+      }
+    });
+  });
+
+  return Object.values(byYear).sort((a, b) => a.year - b.year);
 }
 
 export default function TrendsLineChart({
   data,
   visibleCountries = [],
-  yearFrom,
-  yearTo,
+  selectedYears = [],
   yAxisTicks = [0, 700, 1400, 2100, 2800],
   loading = false,
+  isPatentMetric = false,
 }) {
-  const chartDivRef = useRef(null);
-  const rootRef = useRef(null);
+  const yMax = yAxisTicks[yAxisTicks.length - 1] || 2800;
 
-  const yMax = yAxisTicks[yAxisTicks.length - 1] || 1;
+  const countryByKey = useMemo(
+    () => Object.fromEntries(visibleCountries.map((c) => [c.key, c])),
+    [visibleCountries]
+  );
 
-  const fromYear = clampYear(yearFrom);
-  const toYear = clampYear(yearTo);
-
-  const filteredData = useMemo(() => {
+  const chartRows = useMemo(() => {
     if (!Array.isArray(data)) return [];
+    const allowed =
+      selectedYears.length > 0
+        ? new Set(selectedYears.map((y) => Number(y)))
+        : null;
+
     return data
-      .filter((d) => {
-        const y = Number(d?.year);
-        return (
-          Number.isFinite(y) &&
-          y >= fromYear &&
-          y <= toYear &&
-          y >= CHART_YEAR_START &&
-          y <= CHART_YEAR_END
-        );
+      .filter((row) => {
+        const y = Number(row?.year);
+        if (!Number.isFinite(y)) return false;
+        if (y < CHART_YEAR_START || y > CHART_YEAR_END) return false;
+        if (allowed) return allowed.has(y);
+        return true;
       })
-      .sort((a, b) => Number(a.year) - Number(b.year))
-      .map((d) => ({ ...d, year: String(d.year) }));
-  }, [data, fromYear, toYear]);
+      .map((row) => ({ ...row, year: Number(row.year) }))
+      .sort((a, b) => a.year - b.year);
+  }, [data, selectedYears]);
 
-  useEffect(() => {
-    if (!chartDivRef.current) return;
+  const plotRows = useMemo(() => {
+    if (!isPatentMetric || !chartRows.length) return chartRows;
+    return buildPatentMergedRows(chartRows, visibleCountries);
+  }, [chartRows, isPatentMetric, visibleCountries]);
 
-    if (rootRef.current) {
-      rootRef.current.dispose();
-      rootRef.current = null;
-    }
-
-    if (loading) return;
-    if (!filteredData.length || !visibleCountries.length) return;
-
-    const root = am5.Root.new(chartDivRef.current);
-    rootRef.current = root;
-    root.setThemes([am5themes_Animated.new(root)]);
-
-    if (root._logo) {
-      root._logo.dispose();
-    }
-
-    const chart = root.container.children.push(
-      am5xy.XYChart.new(root, {
-        panX: false,
-        panY: false,
-        wheelX: "none",
-        wheelY: "none",
-        paddingLeft: 8,
-        paddingRight: 8,
-      })
+  const showPatentAfter = useMemo(() => {
+    if (!isPatentMetric) return false;
+    return plotRows.some((row) =>
+      visibleCountries.some(
+        (c) => row[afterDataKey(c.key)] != null && row.year >= PATENT_SPLIT_YEAR
+      )
     );
+  }, [isPatentMetric, plotRows, visibleCountries]);
 
-    const xRenderer = am5xy.AxisRendererX.new(root, {
-      minGridDistance: 28,
-      cellStartLocation: 0,
-      cellEndLocation: 1,
-    });
-
-    xRenderer.grid.template.setAll({
-      stroke: am5.color(0xe2e8f0),
-      strokeOpacity: 0.9,
-      strokeDasharray: [3, 3],
-    });
-
-    const xAxis = chart.xAxes.push(
-      am5xy.CategoryAxis.new(root, {
-        categoryField: "year",
-        startLocation: 0,
-        endLocation: 1,
-        renderer: xRenderer,
-      })
-    );
-
-    xAxis.get("renderer").labels.template.setAll({
-      fill: am5.color(0x64748b),
-      fontSize: 10,
-    });
-
-    xAxis.data.setAll(filteredData);
-
-    const yRenderer = am5xy.AxisRendererY.new(root, {});
-    yRenderer.grid.template.setAll({
-      stroke: am5.color(0xe2e8f0),
-      strokeOpacity: 0.9,
-    });
-
-    const yAxis = chart.yAxes.push(
-      am5xy.ValueAxis.new(root, {
-        min: 0,
-        max: yMax > 0 ? yMax : undefined,
-        strictMinMax: yMax > 0,
-        renderer: yRenderer,
-      })
-    );
-
-    yAxis.get("renderer").labels.template.setAll({
-      fill: am5.color(0x64748b),
-      fontSize: 11,
-    });
-
-    const yearTooltip = am5.Tooltip.new(root, {
-      pointerOrientation: "horizontal",
-      getFillFromSprite: false,
-      autoTextColor: false,
-    });
-
-    yearTooltip.get("background").setAll({
-      fill: am5.color(0xffffff),
-      fillOpacity: 0.98,
-      stroke: am5.color(0xe2e8f0),
-      strokeWidth: 1,
-      cornerRadius: 6,
-    });
-
-    yearTooltip.label.setAll({
-      interactive: true,
-      fill: am5.color(0x334155),
-    });
-
-    const updateBulletsForYear = (year) => {
-      chart.series.each((series) => {
-        series.dataItems.each((dataItem) => {
-          const bullet = dataItem.bullets?.[0];
-          if (!bullet) return;
-          const sprite = bullet.get("sprite");
-          const match = String(dataItem.get("categoryX")) === String(year);
-          sprite.set("opacity", match ? 1 : 0);
-        });
-      });
-    };
-
-    const hideAllBullets = () => {
-      chart.series.each((series) => {
-        series.dataItems.each((dataItem) => {
-          const bullet = dataItem.bullets?.[0];
-          bullet?.get("sprite")?.set("opacity", 0);
-        });
-      });
-    };
-
-    const showYearTooltip = (year) => {
-      const row = filteredData.find((d) => String(d.year) === String(year));
-      if (!row) return;
-
-      yearTooltip.label.set("html", buildTooltipHtml(year, row, visibleCountries));
-      updateBulletsForYear(year);
-      yearTooltip.show();
-
-      const coord = xAxis.categoryToPosition(year);
-      const point = xRenderer.positionToCoordinate(coord);
-      yearTooltip.pointTo({ x: point, y: 0 }, xAxis);
-    };
-
-    const hideYearTooltip = () => {
-      yearTooltip.hide(0);
-      hideAllBullets();
-    };
-
-    const seriesList = [];
-
-    visibleCountries.forEach((country) => {
-      const series = chart.series.push(
-        am5xy.SmoothedXLineSeries.new(root, {
-          name: country.name,
-          xAxis,
-          yAxis,
-          valueYField: country.key,
-          categoryXField: "year",
-          stroke: am5.color(country.color),
-          fill: am5.color(country.color),
-          tension: 0.35,
-        })
-      );
-
-      series.strokes.template.setAll({ strokeWidth: 2 });
-      series.fills.template.setAll({ visible: false });
-      series.set("tooltip", undefined);
-
-      series.bullets.push((root, series) => {
-        const circle = am5.Circle.new(root, {
-          radius: 5,
-          fill: series.get("stroke"),
-          stroke: am5.color(0xffffff),
-          strokeWidth: 1.5,
-          opacity: 0,
-        });
-        return am5.Bullet.new(root, {
-          locationX: 0.5,
-          sprite: circle,
-        });
-      });
-
-      series.data.setAll(filteredData);
-      seriesList.push(series);
-    });
-
-    const cursor = am5xy.XYCursor.new(root, {
-      xAxis,
-      snapToSeries: seriesList,
-      behavior: "none",
-    });
-
-    cursor.lineY.set("visible", false);
-    cursor.lineX.setAll({
-      visible: true,
-      stroke: am5.color(0xcbd5e1),
-      strokeDasharray: [3, 3],
-    });
-
-    chart.set("cursor", cursor);
-    cursor.set("tooltip", yearTooltip);
-
-    cursor.events.on("cursormoved", () => {
-      const posX = cursor.getPrivate("positionX");
-      if (posX == null) {
-        hideYearTooltip();
-        return;
-      }
-
-      const category = xAxis.positionToCategory(xAxis.toAxisPosition(posX));
-      if (!category) {
-        hideYearTooltip();
-        return;
-      }
-
-      showYearTooltip(category);
-    });
-
-    chart.plotContainer.events.on("pointerout", () => {
-      hideYearTooltip();
-    });
-
-    chart.appear(600, 100);
-    seriesList.forEach((s) => s.appear(600));
-
-    return () => {
-      root.dispose();
-      rootRef.current = null;
-    };
-  }, [filteredData, visibleCountries, yMax, loading]);
+  const xDomain = useMemo(() => {
+    if (!plotRows.length) return [CHART_YEAR_START, CHART_YEAR_END];
+    const years = plotRows.map((r) => r.year);
+    return [Math.min(...years), Math.max(...years)];
+  }, [plotRows]);
 
   if (loading) {
     return (
@@ -307,19 +197,93 @@ export default function TrendsLineChart({
     );
   }
 
-  if (!filteredData.length || !visibleCountries.length) {
+  if (!plotRows.length || !visibleCountries.length) {
     return <div className={styles.chartLoading}>No data to display.</div>;
   }
 
   return (
     <div className={styles.chartWrap}>
-      <div
-        ref={chartDivRef}
-        className={styles.chartSvg}
-        style={{ height: CHART_HEIGHT }}
-        role="img"
-        aria-label="Country-wise trends line chart"
-      />
+      <div className={styles.chartPlot} style={{ height: CHART_HEIGHT }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={plotRows}
+            margin={{ top: 16, right: 12, left: 4, bottom: 8 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+
+            <XAxis
+              dataKey="year"
+              type="number"
+              domain={xDomain}
+              allowDecimals={false}
+              tick={
+                <PatentXAxisTick isPatentMetric={isPatentMetric} />
+              }
+              tickMargin={8}
+            />
+
+            <YAxis
+              domain={[0, yMax]}
+              ticks={yAxisTicks}
+              tick={{ fill: "#64748b", fontSize: 11 }}
+              width={48}
+            />
+
+            {isPatentMetric ? (
+              <ReferenceLine
+                x={PATENT_SPLIT_YEAR}
+                stroke="#cbd5e1"
+                strokeDasharray="6 4"
+                strokeWidth={1}
+              />
+            ) : null}
+
+            <Tooltip
+              content={
+                <RankedTooltip
+                  countryByKey={countryByKey}
+                  isPatentMetric={isPatentMetric}
+                />
+              }
+              cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
+            />
+
+            {visibleCountries.map((country) => (
+              <Line
+                key={country.key}
+                type="monotone"
+                dataKey={country.key}
+                name={country.name}
+                stroke={country.color}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5, strokeWidth: 1.5, stroke: "#fff" }}
+                connectNulls
+                isAnimationActive={false}
+              />
+            ))}
+
+            {showPatentAfter
+              ? visibleCountries.map((country) => (
+                  <Line
+                    key={afterDataKey(country.key)}
+                    type="monotone"
+                    dataKey={afterDataKey(country.key)}
+                    stroke={PATENT_AFTER_STROKE}
+                    strokeWidth={1.5}
+                    strokeOpacity={0.65}
+                    strokeDasharray="4 3"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 1, stroke: "#fff" }}
+                    connectNulls
+                    isAnimationActive={false}
+                    legendType="none"
+                  />
+                ))
+              : null}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
 
       <ul className={styles.legend} aria-label="Chart legend">
         {visibleCountries.map((s) => (
@@ -329,7 +293,9 @@ export default function TrendsLineChart({
               className={styles.legendSwatch}
               style={{ backgroundColor: s.color }}
             />
-            <span className={styles.legendName}>{s.name}</span>
+            <span className={styles.legendName} style={{ color: s.color }}>
+              {s.name}
+            </span>
           </li>
         ))}
       </ul>

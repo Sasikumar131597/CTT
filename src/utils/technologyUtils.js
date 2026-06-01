@@ -159,6 +159,20 @@ export function getDefaultCountryValue(countryOptions) {
   return india?.value ?? countryOptions[0]?.value ?? "global";
 }
 
+/** Country id for country-scoped trend APIs (defaults to India when Global is selected). */
+export function getTrendChartCountryId(selectedCountry, countryOptions) {
+  if (selectedCountry && selectedCountry !== "global") {
+    return selectedCountry;
+  }
+  const india = countryOptions.find(
+    (opt) => normalizeCountry(opt.label) === "india"
+  );
+  return india?.value ?? "12";
+}
+
+/** @deprecated Use getTrendChartCountryId */
+export const getPublicationTrendCountryId = getTrendChartCountryId;
+
 /**
  * Parses get_global_publication_count/{subTechId} response.
  * Real API: [{ "sub_tech_id": "44", "total_publications": "103461" }]
@@ -261,6 +275,7 @@ export function mapPublicationCountToCards(
       footerText: "Global →",
       changePercent: Math.abs(globalGrowth),
       trend: globalGrowth < 0 ? "down" : "up",
+      detailView: "publication",
     },
     {
       id: "global-patents",
@@ -270,6 +285,7 @@ export function mapPublicationCountToCards(
       footerText: "Global →",
       changePercent: 0,
       trend: "up",
+      detailView: "patent",
     },
     {
       id: "country-publications",
@@ -279,6 +295,7 @@ export function mapPublicationCountToCards(
       footerText: countryLabel,
       changePercent: Math.abs(countryGrowth),
       trend: countryGrowth < 0 ? "down" : "up",
+      detailView: "publication",
     },
     {
       id: "country-patents",
@@ -288,6 +305,7 @@ export function mapPublicationCountToCards(
       footerText: countryLabel,
       changePercent: 0,
       trend: "up",
+      detailView: "patent",
     },
   ];
 }

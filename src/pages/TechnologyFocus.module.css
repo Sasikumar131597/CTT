@@ -1,0 +1,44 @@
+.page {
+  min-height: calc(100vh - 96px);
+  background: #f8fafc;
+  font-family: "Plus Jakarta Sans", "Outfit", system-ui, sans-serif;
+}
+
+.container {
+  max-width: var(--layout-max-width, 1440px);
+  margin: 0 auto;
+  padding: 2.5rem 3rem 3rem;
+  box-sizing: border-box;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.centerState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 320px;
+  color: #64748b;
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1.5rem 1.25rem 2rem;
+  }
+}

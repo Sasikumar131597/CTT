@@ -1,6 +1,9 @@
 export const CHART_YEAR_START = 2003;
 export const CHART_YEAR_END = 2024;
 
+/** Patent metrics: solid lines through this year; 2023–2024 shown grey/dashed. */
+export const PATENT_SPLIT_YEAR = 2023;
+
 export const METRIC_OPTIONS = [
   {
     id: "total-publications",
@@ -39,12 +42,14 @@ export const METRIC_OPTIONS = [
   },
 ];
 
-export const YEAR_RANGE_OPTIONS = [
-  { value: "2003-2024", label: "2003 – 2024", from: 2003, to: 2024 },
-  { value: "2010-2024", label: "2010 – 2024", from: 2010, to: 2024 },
-  { value: "2015-2024", label: "2015 – 2024", from: 2015, to: 2024 },
-  { value: "2020-2024", label: "2020 – 2024", from: 2020, to: 2024 },
-];
+/** Individual years for multi-select (2003 … 2024). */
+export function buildYearOptions() {
+  const options = [];
+  for (let y = CHART_YEAR_START; y <= CHART_YEAR_END; y += 1) {
+    options.push({ value: String(y), label: String(y) });
+  }
+  return options;
+}
 
 /** Extended distinct color palette for dynamic country assignment. */
 const COLOR_PALETTE = [
